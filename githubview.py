@@ -83,7 +83,12 @@ class GitHubViewer:
         """Verify the creator account and repository exist on GitHub for integrity."""
         try:
             response = self.session.get(f"{GITHUB_API_URL}/repos/exawill/Github-Viewer", timeout=5)
-            return response.status_code == 200
+            if response.status_code == 200:
+                return True
+            if response.status_code == 403:
+                # Return the reset timestamp if rate limited
+                return int(response.headers.get("X-RateLimit-Reset", 0))
+            return False
         except:
             return False
 
@@ -159,8 +164,22 @@ class GitHubViewer:
             TextColumn("[progress.description]{task.description}"),
             transient=True,
         ) as progress:
-            progress.add_task(description="Verifying system integrity...", total=None)
-            if not self.verify_creator():
+            task = progress.add_task(description="Verifying system integrity...", total=None)
+            verification = self.verify_creator()
+            
+            # If verification returns an integer, it's a rate limit reset timestamp
+            while isinstance(verification, int) and verification > 0:
+                wait_time = max(0, verification - int(time.time()))
+                if wait_time <= 0:
+                    verification = self.verify_creator()
+                    continue
+                
+                for i in range(wait_time, 0, -1):
+                    progress.update(task, description=f"[bold yellow]Rate limit hit![/] Retrying integrity check in {i}s...")
+                    time.sleep(1)
+                verification = self.verify_creator()
+
+            if verification is not True:
                 console.print("[bold red]Critical Error:[/] System integrity check failed.")
                 console.print("[red]Could not verify creator authenticity. Exiting...[/]")
                 return
@@ -198,11 +217,20 @@ class GitHubViewer:
                     repos_data = self.fetch_repos(username) if "error" not in user_data else []
 
                 if "error" in user_data:
-                    console.print(f"[bold red]Error:[/] {user_data['error']}")
                     if user_data['error'] == "Rate limit exceeded":
-                        wait_time = max(0, self.rate_limit_reset - int(time.time()))
-                        console.print(f"[yellow]Rate limit reset in {wait_time} seconds.[/]")
+                        wait_time = max(0, self.rate_limit_reset - int(time.time())) + 1
+                        with Progress(
+                            SpinnerColumn(),
+                            TextColumn("[progress.description]{task.description}"),
+                            transient=True,
+                        ) as progress:
+                            task = progress.add_task(description="Rate limit hit...", total=None)
+                            for i in range(wait_time, 0, -1):
+                                progress.update(task, description=f"[bold yellow]Rate limit hit![/] Retrying {username} in {i}s...")
+                                time.sleep(1)
+                        continue  # Retry same username
                     
+                    console.print(f"[bold red]Error:[/] {user_data['error']}")
                     query = Prompt.ask("\n[bold yellow]Enter Github Username or Link (or 'exit' to quit)[/]")
                     if query.lower() == 'exit':
                         break
