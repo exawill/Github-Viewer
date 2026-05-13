@@ -5,10 +5,10 @@ A premium, high-performance CLI tool for real-time GitHub profile monitoring and
 ![GitHub View Preview](preview.png)
 
 ## Features
-- **Real-Time Monitoring**: Controlled 15-second refresh interval for live data updates.
+- **Real-Time Monitoring**: Controlled 30-second refresh interval for live data updates.
 - **Smart Quota Management**: Automatically respects GitHub's 60 requests/hour limit with built-in pause and countdown logic.
 - **Activity Logging**: Success messages and timestamps displayed directly in the dashboard footer.
-- **Session Limits**: Configurable max views per session (up to 10,000).
+- **Session Limits**: Configurable max views per session (up to 1,000).
 - **Rich Visuals**: Multi-column dashboard showing bio, stats, and top repositories using the `rich` library.
 - **Smart URL Parsing**: Accepts usernames or full GitHub profile links.
 
