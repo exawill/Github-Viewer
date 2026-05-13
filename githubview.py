@@ -15,7 +15,7 @@ from rich import box
 
 # Configuration
 GITHUB_API_URL = "https://api.github.com"
-REFRESH_INTERVAL = 15  # Updated to 15 seconds per new view
+REFRESH_INTERVAL = 30
 
 console = Console()
 
@@ -73,7 +73,6 @@ class GitHubViewer:
         try:
             response = self.session.get(f"{GITHUB_API_URL}/users/{username}/repos", params=params)
             self.update_rate_limits(response.headers)
-            # We count each API call as a 'view' in the context of rate limiting
             if response.status_code == 200:
                 return response.json()
             return []
@@ -83,7 +82,6 @@ class GitHubViewer:
     def verify_creator(self):
         """Verify the creator account and repository exist on GitHub for integrity."""
         try:
-            # Check for the specific repository
             response = self.session.get(f"{GITHUB_API_URL}/repos/exawill/Github-Viewer", timeout=5)
             return response.status_code == 200
         except:
@@ -155,8 +153,7 @@ class GitHubViewer:
 
     def run(self):
         console.clear()
-        
-        # System Integrity Check
+
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -168,11 +165,9 @@ class GitHubViewer:
                 console.print("[red]Could not verify creator authenticity. Exiting...[/]")
                 return
 
-        # Display ASCII Logo and Creator Info
         console.print(ASCII_LOGO)
         console.print("[bold white]Creator : @exawill[/]\n")
         
-        # Initial Inputs
         query = Prompt.ask("[bold yellow]Enter Github Username or Link[/]")
         if query.lower() == 'exit':
             return
@@ -190,12 +185,8 @@ class GitHubViewer:
             
         console.print(f"\n[green]Session started with a limit of {self.max_views} views.[/]")
         
-        # Main Session Loop
         while self.current_views < self.max_views:
             try:
-                # On first iteration, we already have the username.
-                # On subsequent iterations (if we want to allow searching again), we'd ask.
-                # However, the user flow requested seems to imply starting with a specific target.
                 
                 with Progress(
                     SpinnerColumn(),
@@ -212,14 +203,12 @@ class GitHubViewer:
                         wait_time = max(0, self.rate_limit_reset - int(time.time()))
                         console.print(f"[yellow]Rate limit reset in {wait_time} seconds.[/]")
                     
-                    # If error, ask for a new username to continue the session
                     query = Prompt.ask("\n[bold yellow]Enter Github Username or Link (or 'exit' to quit)[/]")
                     if query.lower() == 'exit':
                         break
                     username = self.extract_username(query)
                     continue
 
-                # Display Dashboard
                 layout = self.create_layout()
                 self._update_layout_content(layout, user_data, repos_data)
 
@@ -229,7 +218,6 @@ class GitHubViewer:
                 watch = Prompt.ask("\nEnter '[bold green]watch[/]' to start auto-refresh every 15s, or press [bold white]Enter[/] to search again", default="")
                 
                 if watch.lower() == 'watch':
-                    # ... (watch logic remains mostly same)
                     self.status_message = f"Starting auto-watch for {username}..."
                     console.clear()
                     with Live(layout, refresh_per_second=1) as live:
@@ -256,7 +244,6 @@ class GitHubViewer:
                     console.clear()
                     console.print("[yellow]Exited Watch Mode.[/]")
 
-                # After viewing or watching, ask for the next target if we haven't hit the limit
                 if self.current_views < self.max_views:
                     query = Prompt.ask("\n[bold yellow]Enter Github Username or Link (or 'exit' to quit)[/]")
                     if query.lower() == 'exit':
@@ -290,7 +277,6 @@ class GitHubViewer:
         layout["profile"].update(self.get_profile_panel(user))
         layout["repos"].update(self.get_repos_panel(repos))
         
-        # Build footer with status message
         footer_content = Group(
             Text(self.status_message, style="bold green" if "Success" in self.status_message else "yellow"),
             Text("Press Ctrl+C to stop monitoring" if is_watching else "Enter 'watch' to loop every 15 seconds", style="dim")
